@@ -77,7 +77,6 @@ having numActive > 30 ORDER BY numActive DESC
 
 /* 9.	For all expense reports submitted in the year 2020, what is the total amount spent in each line item category?  
         Only include categories that have more than 50 line item expenses in your results.*/
-
 SELECT lineItemCat, COUNT(ExpLineItem.lineItemAmt) as countCat,
         Sum(ExpLineItem.lineItemAmt) as sumCat FROM ExpReport JOIN ExpLineItem 
 on ExpReport.expReportNum = ExpLineItem.expReportNum
@@ -86,30 +85,92 @@ GROUP BY lineItemCat
 HAVING countCat > 50;
 
 -- 10.	Who are the customers that have more than 30 users that have logged in within the last 180 days?
-select * from Users where lastLogon
+Select * from  
+    (
+    SELECT Customer.custName, Customer.CustNum, 
+        COUNT(userID) as activeUsers 
+    FROM Users JOIN Customer on Users.CustNum = Customer.custNum
+    WHERE lastLogon >= CURDATE() - INTERVAL 6 MONTH
+    GROUP BY Customer.custName, Customer.custNum
+    ) as hold
+WHERE activeUsers > 30 order by activeUsers;
 
 -- 11.	Who is the boss of the Sales rep that is linked to order number 210292?
+Select Boss.empNum as bossNum, Boss.empFName as bossFName, Boss.empLName, 
+Customer.salesRep, Invoice.invoiceNum FROM Employee as Boss, Employee as SalesRep
+JOIN Customer on SalesRep.empNum = Customer.salesRep
+JOIN Invoice on Customer.custNum = Invoice.custNum
+WHERE invoiceNum = '210292' AND Boss.empNum = SalesRep.reportsTo;
 
 -- 12.	What is the total dollar value of all expenses paid for queen sized hotel room types?
+/* 　This includes all expenses for those with Queen roomTypes, including Hotel, Hotel Stay, Place to stay, Room, Lodging, food for team, 
+restaurant meal, group lunch, meal for myself, dinner, group dinner, lunch, sales dinner, meal, client entertainment, dinner with client*/
+SELECT CONCAT('$', FORMAT(expensesForQueenRooms, 2)) as expensesForQueenRooms  FROM
+(SELECT sum(lineItemAmt) as expensesForQueenRooms from 
+ExpLineItem join Lodging on ExpLineItem.expLineItemNum = Lodging.expLineItemNum
+WHERE roomType = 'Queen')as hold;
 
 /* 13.	What is the average cost per night for each hotel that an expense has been submitted for? 
         (the names of hotels would be listed in “lineItemCompany”? */
+SELECT CONCAT('$', FORMAT(nightlyRate, 2)) as avgNightlyRate  FROM
+(select AVG(lineItemAmt/lodgingNights) as nightlyRate
+from ExpLineItem join Lodging on ExpLineItem.expLineItemNum = Lodging.expLineItemNum
+WHERE lineItemCat = 'Lodging') as hold;
 
 -- 14.	How much money has been spent paying in airfare for employees to fly into the Atlanta airport?
+SELECT CONCAT('$', FORMAT(avgATLFare, 2)) as avgATLFare  FROM
+(select AVG(lineItemAmt) as avgATLFare from ExpLineItem join AirTravel on 
+ExpLineItem.expLineItemNum = AirTravel.expLineItemNum
+where destination = 'Atlanta') as hold;
 
 -- 15.	Which current/active hourly employees earn less than the average hourly rate of all current/active employees?
+--SELECT AVG(empHourlyRate) from Employee as avgSalary;
+select empNum, empFName, empLName, empHourlyRate from Employee  
+WHERE empHourlyrate < (select avg(empHourlyrate) from Employee) AND 
+        empTerminationDate is NULL
+ORDER BY empHourlyRate;
 
 -- 16.	Which customers have more than 10 users located in the same state (userState would be the same as custState)?
+SELECT Customer.custNum, custState, count(Users.userState) as numUserSameState  from 
+Customer join Users on Customer.custNum = Users.custNum
+WHERE Customer.custState = Users.userState
+group by Customer.custNum, custState
+HAVING numUserSameState > 10;
 
 /* 17.	Generate a report that shows all current, salaried employees and the number of customers they serve as the 
         sales rep (if they are not a sales rep, then the count should be zero). */
+SELECT Employee.empNum, count(Customer.custNum) numCustomers
+FROM Employee left JOIN Customer on Employee.empNum = Customer.SalesRep
+WHERE Employee.empSalary is not null AND Employee.empTerminationDate is NULL
+GROUP BY Employee.empNum
+ORDER BY numCustomers DESC;
 
 /* 18.	Who are the salaried employees that earn at least 95% of their boss’ salary?  Display the subordinate’s full 
         name and salary along with the boss’ full name and salary.*/
+SELECT Emp.empFName as empFName, Emp.empLName as empLName, Emp.empSalary as empSalary, 
+        Boss.empFNAme as bossFNme, Boss.empLName as bossLName, Boss.empSalary as bossSalary 
+FROM Employee as Emp, Employee as Boss
+WHERE Emp.empSalary >= (.95*Boss.empSalary) AND 
+    Boss.empNum = Emp.reportsTo;
 
 /* 19.	Which employees have submitted an expense report with a below average first class plane ticket 
          (e.g. their first class plane ticket was less than the average of all first class plane tickets)?*/
+SELECT DISTINCT Employee.empNum, ExpLineItem.lineItemAmt ticketCost, ExpLineItem.lineItemCompany airline 
+FROM Employee join ExpReport
+on Employee.empNum = ExpReport.empNum join ExpLineItem
+on ExpReport.expReportNum = ExpLineItem.expReportNum join AirTravel
+ON ExpLineItem.expLineItemNum = AirTravel.expLineItemNum
+WHERE AirTravel.airServiceClass = "First" and ExpLineItem.lineItemCat = "Air Travel"
+    AND ExpLineItem.lineItemAmt < (select avg(ExpLineItem.lineItemAmt) from ExpLineItem join AirTravel on 
+                                    ExpLineItem.expLineItemNum=AirTravel.expLineItemNum
+                                    WHERE AirTravel.airServiceClass = "First" and ExpLineItem.lineItemCat = "Air Travel") ;
 
 /* 20.	Which expense report purpose has been assigned to the most expense reports?  Your result should display 
         just one row that lists the purposeDesc and the number of expense reports that have been assigned that purpose 
         (no matter the percentage).*/
+SELECT ExpRep from ExpRepPurpose JOIN ExpReport
+on ExpRepPurpose.expReportNum = ExpReport.expReportNum JOIN ExpLineItem
+on ExpReport.expReportNum = ExpLineItem.expReportNum;
+
+
+SELECT COUNT(DISTINCT purposeID) from ExpRepPurpose;
