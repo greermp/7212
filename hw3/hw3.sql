@@ -168,9 +168,17 @@ WHERE AirTravel.airServiceClass = "First" and ExpLineItem.lineItemCat = "Air Tra
 /* 20.	Which expense report purpose has been assigned to the most expense reports?  Your result should display 
         just one row that lists the purposeDesc and the number of expense reports that have been assigned that purpose 
         (no matter the percentage).*/
-SELECT ExpRep from ExpRepPurpose JOIN ExpReport
-on ExpRepPurpose.expReportNum = ExpReport.expReportNum JOIN ExpLineItem
-on ExpReport.expReportNum = ExpLineItem.expReportNum;
+select purposeDesc, count(ExpRepPurpose.purposeID) as categoryTotal  from 
+ExpRepPurpose JOIN Purpose on ExpRepPurpose.purposeID = Purpose.purposeID
+group by ExpRepPurpose.purposeID, purposeDesc order by categoryTotal desc;
 
+/*
+SET @total := (SELECT COUNT(purposeID) FROM ExpRepPurpose);
+SELECT @total;
 
-SELECT COUNT(DISTINCT purposeID) from ExpRepPurpose;
+Select  percentTotal, purposeID, purposeDesc FROM 
+(select ExpRepPurpose.purposeID, count(ExpRepPurpose.purposeID)/@total as percentTotal, purposeDesc from 
+ExpRepPurpose JOIN Purpose on ExpRepPurpose.purposeID = Purpose.purposeID
+group by ExpRepPurpose.purposeID , purposeDesc 
+order by percentTotal desc) as hold
+GROUP BY purposeID, purposeDesc LIMIT 1;*/
